@@ -4,7 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Coffee Shop Report</title>
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+    <link rel="icon" type="image/x-icon" href="img/coffee.png" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="css/dashboard.css" />
   </head>
@@ -40,14 +41,27 @@
               <option value="asc">Ascending</option>
             </select>
           </div>
-          <div class="search-container">
-            <label for="search">Search Store:</label>
-            <input type="text" id="search" name="search" placeholder="Type to search" list="storeList" />
-            <datalist id="storeList">
-              <option value="Astoria">
-              <option value="Hell's Kitchen">
-              <option value="Lower Manhattan">
-            </datalist>
+          <div class="wrap">
+            <label for="keyFilter">Filter by Keyword:</label>
+            <div class="search">
+              <input type="text" class="searchTerm" placeholder="Search" />
+              <button type="submit" class="searchButton" id="keyFilter">
+                <i class="fa fa-search"></i>
+              </button>
+            </div>
+          </div>
+          <div id="popup" class="popup">
+            <div id="popup-content" class="popup-content"></div>
+            <span id="popup-close" class="popup-close">&times;</span>
+          </div>
+
+          <div>
+            <label for="locationFilter">Filter by Location:</label>
+            <select id="locationFilter">
+              <option value="">All Locations</option>
+
+              <!-- Options will be added dynamically -->
+            </select>
           </div>
           <div class="chart-container">
             <canvas id="pieChart"></canvas>
@@ -55,22 +69,17 @@
           <form>
             <div class="form-container">
               <label for="store_location">
-                <div class="checkbox-wrapper"><input type="checkbox" name="store_location" value="store_location" checked />store_location</div>
-                <span class="static-text-usd">total_usd</span>
+                <div>Store Location</div>
               </label>
-              <input type="text" id="search" name="search" placeholder="Type to search" />
               <div class="filter-box">
                 <label for="hells_kitchen">
-                  <div class="checkbox-wrapper"><input type="checkbox" name="hells_kitchen" value="hells_kitchen" unchecked /> Hell's Kitchen</div>
-                  <span class="static-text">236.5K</span>
+                  <div>Hell's Kitchen</div>
                 </label>
                 <label for="astoria">
-                  <div class="checkbox-wrapper"><input type="checkbox" name="astoria" value="astoria" checked /> Astoria</div>
-                  <span class="static-text-astoria">232.2K</span>
+                  <div>Astoria</div>
                 </label>
                 <label for="lower">
-                  <div class="checkbox-wrapper"><input type="checkbox" name="lower_manhattan" value="lower_manhattan" checked /> Lower Manhattan</div>
-                  <span class="static-text-lower">230.1K</span>
+                  <div>Lower Manhattan</div>
                 </label>
               </div>
             </div>
@@ -79,22 +88,35 @@
           <form>
             <div class="form-container">
               <label for="store_location">
-                <div class="checkbox-wrapper-product"><input type="checkbox" name="product" value="product" checked />product_category</div>
-                <span class="static-text-transcation">transaction_id</span>
+                <div>Product Category</div>
               </label>
-              <input type="text" id="search" name="search" placeholder="Type to search" />
               <div class="filter-box">
                 <label for="coffe">
-                  <div class="checkbox-wrapper"><input type="checkbox" name="coffe" value="coffe" unchecked /> Coffe</div>
-                  <span class="static-text-coffe">4.4B</span>
+                  <div>Coffe</div>
                 </label>
                 <label for="tea">
-                  <div class="checkbox-wrapper"><input type="checkbox" name="tea" value="tea" checked /> Tea</div>
-                  <span class="static-text-tea">3.4B</span>
+                  <div>Tea</div>
                 </label>
                 <label for="bakkery">
-                  <div class="checkbox-wrapper"><input type="checkbox" name="bakkery" value="bakkery" unchecked /> Bakkery</div>
-                  <span class="static-text-bakkery">1.7B</span>
+                  <div>Bakkery</div>
+                </label>
+                <label for="Drinking">
+                  <div>Drinking Chocolate</div>
+                </label>
+                <label for="Flavours">
+                  <div>Flavours</div>
+                </label>
+                <label for="beans">
+                  <div>Coffee beans</div>
+                </label>
+                <label for="Loose">
+                  <div>Loose Tea</div>
+                </label>
+                <label for="Branded">
+                  <div>Branded</div>
+                </label>
+                <label for="Packaged">
+                  <div>Packaged Chocolate</div>
                 </label>
               </div>
             </div>
@@ -127,9 +149,7 @@
             <div class="chart-text">Revenue Distribution of Product Types</div>
             <canvas id="myChart1"></canvas>
           </div>
-          <!-- <div id="chartContainer">
-            <canvas id="pieChart"></canvas>
-          </div> -->
+
           <div class="container-revenue">
             <h3>Revenue</h3>
             <canvas id="revenue"></canvas>
@@ -153,10 +173,10 @@
                     <th>product category</th>
                     <th>product type</th>
                     <th>product detail</th>
-                    <th>total usd</th>        
+                    <th>total usd</th>
                   </tr>
                 </thead>
-                <tbody id="salesTable">
+                <tbody>
                   <!-- Data akan diisi melalui JavaScript -->
                 </tbody>
               </table>
@@ -164,6 +184,7 @@
                 <button id="prevButton" onclick="prevButtonClick()">Previous</button>
                 <button id="nextButton" onclick="nextButtonClick()">Next</button>
               </div>
+            </div>
           </section>
         </div>
       </div>

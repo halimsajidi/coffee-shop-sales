@@ -1,43 +1,93 @@
-$(document).ready(function () {
-  $.getJSON('data.json', function (data) {
-    var totalRevenue = 0;
-    $.each(data, function (index, item) {
-      var unit_price = parseFloat(item.unit_price.replace(',', '.'));
-      totalRevenue += unit_price;
-    });
-    $('#totalRevenue').text('$' + totalRevenue.toFixed(2));
-  });
-});
+document.addEventListener('DOMContentLoaded', function () {
+  let jsonData = [];
 
-$(document).ready(function () {
-  $.getJSON('data.json', function (data) {
-    var totalTransaksi = 0;
-    $.each(data, function (index, item) {
-      var transactionQty = parseFloat(item.transaction_qty.replace(',', '.'));
+  // Fetch data once and store it
+  fetch('data.json')
+    .then((response) => response.json())
+    .then((data) => {
+      jsonData = data;
+      populateLocationFilter(data);
+      updateMetrics(data);
+      updateCharts(data);
+      renderPieChart(data);
+      renderProductQtyChart(data);
+      renderProductUSDChart(data);
+    });
+
+  function populateLocationFilter(data) {
+    const locationFilter = document.getElementById('locationFilter');
+    const locations = Array.from(new Set(data.map((item) => item.store_location)));
+    locations.forEach((location) => {
+      const option = document.createElement('option');
+      option.value = location;
+      option.textContent = location;
+      locationFilter.appendChild(option);
+    });
+  }
+
+  document.getElementById('keyFilter').addEventListener('click', function () {
+    const keyword = document.querySelector('.searchTerm').value.toLowerCase();
+    const storeNames = ['Astoria', "Hell's Kitchen", 'Lower Manhattan'];
+
+    const filteredData = jsonData.filter((item) => {
+      return storeNames.some((store) => item.store_location.toLowerCase() === store.toLowerCase() && item.store_location.toLowerCase().includes(keyword));
+    });
+
+    if (filteredData.length === 0) {
+      showPopup(`Data yang anda cari dengan keyword '${keyword}' tidak dapat ditemukan`);
+    } else {
+      updateMetrics(filteredData);
+      updateCharts(filteredData);
+      renderPieChart(filteredData);
+      renderProductQtyChart(filteredData);
+      renderProductUSDChart(filteredData);
+    }
+  });
+
+  function showPopup(message) {
+    const popup = document.getElementById('popup');
+    const popupContent = document.getElementById('popup-content');
+    popupContent.textContent = message;
+    popup.style.display = 'block';
+
+    // Event listener untuk menutup pop-up
+    document.getElementById('popup-close').addEventListener('click', function () {
+      popup.style.display = 'none';
+    });
+  }
+
+  function updateMetrics(data) {
+    // Calculate total revenue
+    let totalRevenue = 0;
+    data.forEach((item) => {
+      let revenue = parseFloat(item.total_usd.replace(',', '.'));
+      totalRevenue += revenue;
+    });
+    document.getElementById('totalRevenue').textContent = '$' + totalRevenue.toFixed(2);
+
+    // Calculate total transactions
+    let totalTransaksi = 0;
+    data.forEach((item) => {
+      let transactionQty = parseFloat(item.transaction_qty.replace(',', '.'));
       totalTransaksi += transactionQty;
     });
-    $('#totalTransaksi').text(totalTransaksi.toFixed());
-  });
-});
+    document.getElementById('totalTransaksi').textContent = totalTransaksi.toFixed();
 
-$(document).ready(function () {
-  $.getJSON('data.json', function (data) {
-    var uniqueOrderIds = {};
-    $.each(data, function (index, item) {
+    // Calculate total unique orders
+    let uniqueOrderIds = {};
+    data.forEach((item) => {
       uniqueOrderIds[item.transaction_id] = true;
     });
-    var totalOrders = Object.keys(uniqueOrderIds).length;
-    $('#totalOrders').text(totalOrders);
-  });
-});
+    let totalOrders = Object.keys(uniqueOrderIds).length;
+    document.getElementById('totalOrders').textContent = totalOrders;
+  }
 
-$(document).ready(function () {
-  $.getJSON('data.json', function (data) {
-    var salesPerHour = {};
-
-    data.forEach(function (transaction) {
-      var hour = transaction.transaction_time_hour;
-      var totalUSD = parseFloat(transaction.total_usd);
+  function updateCharts(data) {
+    // Sales per hour chart
+    let salesPerHour = {};
+    data.forEach((transaction) => {
+      let hour = transaction.transaction_time_hour;
+      let totalUSD = parseFloat(transaction.total_usd.replace(',', '.'));
 
       if (!salesPerHour[hour]) {
         salesPerHour[hour] = 0;
@@ -46,19 +96,21 @@ $(document).ready(function () {
       salesPerHour[hour] += totalUSD;
     });
 
-    var labels = [];
-    var salesData = [];
-
-    for (var hour = 0; hour < 24; hour++) {
-      labels.push(hour + ':00');
+    let salesLabels = [];
+    let salesData = [];
+    for (let hour = 0; hour < 24; hour++) {
+      salesLabels.push(hour + ':00');
       salesData.push(salesPerHour[hour] ? salesPerHour[hour] : 0);
     }
 
-    var ctx = document.getElementById('coffeeSalesPerHourChart').getContext('2d');
-    var chart = new Chart(ctx, {
+    let ctxSales = document.getElementById('coffeeSalesPerHourChart').getContext('2d');
+    if (window.salesChart) {
+      window.salesChart.destroy();
+    }
+    window.salesChart = new Chart(ctxSales, {
       type: 'line',
       data: {
-        labels: labels,
+        labels: salesLabels,
         datasets: [
           {
             label: 'Penjualan USD per Jam',
@@ -78,31 +130,28 @@ $(document).ready(function () {
         },
       },
     });
-  });
-});
 
-$(document).ready(function () {
-  $.getJSON('data.json', function (data) {
-    var transactionsPerDay = {};
-
-    data.forEach(function (transaction) {
-      var day = transaction.transaction_day;
-
+    // Transactions per day chart
+    let transactionsPerDay = {};
+    data.forEach((transaction) => {
+      let day = transaction.transaction_day;
       if (!transactionsPerDay[day]) {
         transactionsPerDay[day] = 0;
       }
-
-      transactionsPerDay[day] += parseInt(transaction.transaction_qty);
+      transactionsPerDay[day] += parseInt(transaction.transaction_qty.replace(',', '.'));
     });
 
-    var labels = Object.keys(transactionsPerDay);
-    var transactionQtys = Object.values(transactionsPerDay);
+    let transactionLabels = Object.keys(transactionsPerDay);
+    let transactionQtys = Object.values(transactionsPerDay);
 
-    var ctx = document.getElementById('transactionsQtyPerDayChart').getContext('2d');
-    var chart = new Chart(ctx, {
+    let ctxTransactions = document.getElementById('transactionsQtyPerDayChart').getContext('2d');
+    if (window.transactionsChart) {
+      window.transactionsChart.destroy();
+    }
+    window.transactionsChart = new Chart(ctxTransactions, {
       type: 'line',
       data: {
-        labels: labels,
+        labels: transactionLabels,
         datasets: [
           {
             label: 'Total Qty Terjual per Hari',
@@ -123,14 +172,60 @@ $(document).ready(function () {
         },
       },
     });
-  });
-});
+  }
 
-fetch('data.json')
-  .then((response) => response.json())
-  .then((data) => {
+  function renderPieChart(data) {
+    const ctx = document.getElementById('pieChart').getContext('2d');
+    if (window.myPieChart) {
+      window.myPieChart.destroy();
+    }
+
+    const storeLocations = {};
+    data.forEach((item) => {
+      storeLocations[item.store_location] = storeLocations[item.store_location] || [];
+      storeLocations[item.store_location].push(item.transaction_id);
+    });
+
+    const labels = Object.keys(storeLocations);
+    const values = labels.map((label) => storeLocations[label].length);
+
+    window.myPieChart = new Chart(ctx, {
+      type: 'pie',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: '# of Transactions',
+            data: values,
+            backgroundColor: ['rgba(60,42,30, 0.2)', 'rgba(60,42,30, 0.5)', 'rgba(60,42,30, 1)'],
+            borderColor: ['rgba(60,42,30, 1)', 'rgba(60,42,30, 1)', 'rgba(60,42,30, 1)'],
+            borderWidth: 1,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            position: 'top',
+          },
+          tooltip: {
+            callbacks: {
+              label: function (context) {
+                const label = context.label || '';
+                const count = context.raw;
+                const transactionIds = storeLocations[label];
+                return `${label}: ${count} (Transactions: ${transactionIds.join(', ')})`;
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  function renderProductQtyChart(data) {
     let productQtyMap = {};
-
     data.forEach((transaction) => {
       const productDetail = transaction.product_detail;
       const qty = parseFloat(transaction.transaction_qty.replace(',', '.'));
@@ -153,7 +248,10 @@ fetch('data.json')
     let dataValues = labels.map((detail) => productQtyMap[detail]);
 
     const ctx = document.getElementById('myChart').getContext('2d');
-    const myChart = new Chart(ctx, {
+    if (window.myProductQtyChart) {
+      window.myProductQtyChart.destroy();
+    }
+    window.myProductQtyChart = new Chart(ctx, {
       type: 'bar',
       data: {
         labels: labels,
@@ -182,17 +280,14 @@ fetch('data.json')
       const order = this.value;
       labels = sortProductDetail(order);
       dataValues = labels.map((detail) => productQtyMap[detail]);
-      myChart.data.labels = labels;
-      myChart.data.datasets[0].data = dataValues;
-      myChart.update();
+      window.myProductQtyChart.data.labels = labels;
+      window.myProductQtyChart.data.datasets[0].data = dataValues;
+      window.myProductQtyChart.update();
     });
-  });
+  }
 
-fetch('data.json')
-  .then((response) => response.json())
-  .then((data) => {
+  function renderProductUSDChart(data) {
     let productTotalUSDMap = {};
-
     data.forEach((transaction) => {
       const productDetail = transaction.product_detail;
       const totalUSD = parseFloat(transaction.total_usd.replace(',', '.'));
@@ -215,7 +310,10 @@ fetch('data.json')
     let dataValues = labels.map((detail) => productTotalUSDMap[detail]);
 
     const ctx = document.getElementById('myChart1').getContext('2d');
-    const myChart = new Chart(ctx, {
+    if (window.myProductUSDChart) {
+      window.myProductUSDChart.destroy();
+    }
+    window.myProductUSDChart = new Chart(ctx, {
       type: 'bar',
       data: {
         labels: labels,
@@ -240,168 +338,211 @@ fetch('data.json')
       },
     });
 
-    // Event listener untuk perubahan urutan
     document.getElementById('orderSelect').addEventListener('change', function () {
       const order = this.value;
       labels = sortProductDetail(order);
       dataValues = labels.map((detail) => productTotalUSDMap[detail]);
-      myChart.data.labels = labels;
-      myChart.data.datasets[0].data = dataValues;
-      myChart.update();
+      window.myProductUSDChart.data.labels = labels;
+      window.myProductUSDChart.data.datasets[0].data = dataValues;
+      window.myProductUSDChart.update();
     });
-  });
-// Fungsi untuk memuat data dari file JSON
-async function loadSalesData() {
-  const response = await fetch('data.json');
-  const data = await response.json();
-  return data;
-}
-// Variabel untuk melacak indeks awal dan akhir data yang ditampilkan
-let startIndex = 0;
-const itemsPerPage = 10;
-
-// Fungsi untuk mengisi tabel dengan data penjualan sesuai dengan rentang indeks
-async function fillSalesTable() {
-  const rawData = await loadSalesData();
-
-  const tableBody = document.querySelector("#salesTable tbody");
-  tableBody.innerHTML = "";
-
-  // Mengambil data untuk halaman saat ini berdasarkan rentang indeks
-  const currentPageData = rawData.slice(startIndex, startIndex + itemsPerPage);
-
-  currentPageData.forEach((item) => {
-    const row = document.createElement("tr");
-    row.innerHTML = `
-              <td>${item.transaction_id}</td>
-              <td>${item.transaction_date}</td>
-              <td>${item.transaction_day}</td>
-              <td>${item.transaction_time}</td>
-              <td>${item.transaction_time_hour}</td>
-              <td>${item.transaction_qty}</td>
-              <td>${item.store_id}</td>
-              <td>${item.store_location}</td>
-              <td>${item.product_id}</td>
-              <td>${item.unit_price}</td>
-              <td>${item.product_category}</td>
-              <td>${item.product_type}</td>
-              <td>${item.product_detail}</td>
-              <td>${item.total_usd}</td>
-        `;
-    tableBody.appendChild(row);
-  });
-
-  // Menampilkan atau menyembunyikan tombol panah berikutnya sesuai dengan kondisi
-  const nextButton = document.getElementById("nextButton");
-  if (startIndex + itemsPerPage >= rawData.length) {
-    nextButton.style.display = "none";
-  } else {
-    nextButton.style.display = "block";
   }
 
-  // Menampilkan atau menyembunyikan tombol panah sebelumnya sesuai dengan kondisi
-  const prevButton = document.getElementById("prevButton");
-  if (startIndex === 0) {
-    prevButton.style.display = "none";
-  } else {
-    prevButton.style.display = "block";
+  function filterDataByLocation(location) {
+    if (!location) {
+      return jsonData;
+    }
+    return jsonData.filter((item) => item.store_location === location);
   }
-}
 
-// Fungsi untuk menangani klik tombol panah berikutnya
-function nextButtonClick() {
-  startIndex += itemsPerPage;
-  fillSalesTable();
-}
-
-// Fungsi untuk menangani klik tombol panah sebelumnya
-function prevButtonClick() {
-  startIndex -= itemsPerPage;
-  fillSalesTable();
-}
-
-// Panggil fungsi untuk mengisi tabel saat halaman dimuat
-document.addEventListener("DOMContentLoaded", () => {
-  initChart();
-  fillSalesTable();
+  document.getElementById('locationFilter').addEventListener('change', function () {
+    const selectedLocation = this.value;
+    const filteredData = filterDataByLocation(selectedLocation);
+    updateMetrics(filteredData);
+    updateCharts(filteredData);
+    renderPieChart(filteredData);
+    renderProductQtyChart(filteredData);
+    renderProductUSDChart(filteredData);
+  });
 });
 
-// Fungsi untuk mengolah data penjualan per bulan
-async function processMonthlySalesData() {
-  const rawData = await loadSalesData();
-  const salesData = {};
+// Event listener untuk perubahan urutan
+document.getElementById('orderSelect').addEventListener('change', function () {
+  const order = this.value;
+  labels = sortProductDetail(order);
+  dataValues = labels.map((detail) => productTotalUSDMap[detail]);
+  myChart.data.labels = labels;
+  myChart.data.datasets[0].data = dataValues;
+  myChart.update();
+});
 
-  rawData.forEach((item) => {
-    const [day, month, year] = item.transaction_date.split('/');
-    const dateKey = `${year}-${month.padStart(2, '0')}`; // Membuat key dengan format 'YYYY-MM'
+document.addEventListener('DOMContentLoaded', function () {
+  let jsonData = [];
 
-    const quantity = parseInt(item.transaction_qty);
-    const unitPrice = parseFloat(item.unit_price.replace('$', ''));
-    const totalSales = parseFloat(item.total_usd.replace('$', ''));
+  // Fetch data once and store it
+  fetch('data.json')
+    .then((response) => response.json())
+    .then((data) => {
+      jsonData = data;
+      populateLocationFilter(data);
+      updateCharts(data);
+      fillSalesTable(); // Panggil fungsi fillSalesTable setelah data dimuat
+    });
 
-    if (salesData[dateKey]) {
-      salesData[dateKey] += totalSales;
+  function populateLocationFilter(data) {
+    const locationFilter = document.getElementById('locationFilter');
+    const locations = Array.from(new Set(data.map((item) => item.store_location)));
+
+    // Tambahkan event listener untuk perubahan pada filter lokasi
+    locationFilter.addEventListener('change', locationFilterChange);
+  }
+
+  function updateCharts(data) {
+    // Inisialisasi atau perbarui chart di sini
+    initChart();
+  }
+
+  async function loadSalesData() {
+    return jsonData; // Kembalikan data yang sudah dimuat
+  }
+
+  let startIndex = 0;
+  const itemsPerPage = 10;
+
+  async function fillSalesTable() {
+    const rawData = await loadSalesData();
+
+    const tableBody = document.querySelector('#salesTable tbody');
+    tableBody.innerHTML = '';
+
+    const selectedLocation = document.getElementById('locationFilter').value;
+
+    const filteredData = selectedLocation ? rawData.filter((item) => item.store_location === selectedLocation) : rawData;
+
+    const currentPageData = filteredData.slice(startIndex, startIndex + itemsPerPage);
+
+    currentPageData.forEach((item) => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+                <td>${item.transaction_id}</td>
+                <td>${item.transaction_date}</td>
+                <td>${item.transaction_day}</td>
+                <td>${item.transaction_time}</td>
+                <td>${item.transaction_time_hour}</td>
+                <td>${item.transaction_qty}</td>
+                <td>${item.store_id}</td>
+                <td>${item.store_location}</td>
+                <td>${item.product_id}</td>
+                <td>${item.unit_price}</td>
+                <td>${item.product_category}</td>
+                <td>${item.product_type}</td>
+                <td>${item.product_detail}</td>
+                <td>${item.total_usd}</td>
+          `;
+      tableBody.appendChild(row);
+    });
+
+    const nextButton = document.getElementById('nextButton');
+    if (startIndex + itemsPerPage >= filteredData.length) {
+      nextButton.style.display = 'none';
     } else {
-      salesData[dateKey] = totalSales;
+      nextButton.style.display = 'block';
     }
-  });
 
-  const labels = Object.keys(salesData).sort(); // Mengurutkan berdasarkan tanggal
-  const data = labels.map((label) => salesData[label]);
+    const prevButton = document.getElementById('prevButton');
+    if (startIndex === 0) {
+      prevButton.style.display = 'none';
+    } else {
+      prevButton.style.display = 'block';
+    }
+  }
 
-  return { labels, data };
-}
+  function nextButtonClick() {
+    startIndex += itemsPerPage;
+    fillSalesTable();
+  }
 
-// Fungsi untuk menginisialisasi chart dengan data dari JSON
-async function initChart() {
-  const chartData = await processMonthlySalesData();
+  function prevButtonClick() {
+    startIndex -= itemsPerPage;
+    fillSalesTable();
+  }
 
-  const salesData = {
-    labels: chartData.labels,
-    datasets: [
-      {
-        label: 'Revenue',
-        data: chartData.data,
-        backgroundColor: 'rgba(75, 54, 25, 0.2)',
-        borderColor: 'rgba(75, 54, 25, 1)',
-        borderWidth: 1,
-        fill: true,
-        tension: 0.4,
-      },
-    ],
-  };
+  function locationFilterChange() {
+    startIndex = 0; // Reset ke halaman pertama setiap kali filter berubah
+    fillSalesTable();
+    updateCharts(); // Perbarui chart saat filter lokasi berubah
+  }
 
-  const config = {
-    type: 'line',
-    data: salesData,
-    options: {
-      responsive: true,
-      scales: {
-        y: {
-          beginAtZero: true,
+  async function processMonthlySalesData() {
+    const rawData = await loadSalesData();
+    const selectedLocation = document.getElementById('locationFilter').value;
+
+    const filteredData = selectedLocation ? rawData.filter((item) => item.store_location === selectedLocation) : rawData;
+
+    const salesData = {};
+
+    filteredData.forEach((item) => {
+      const [day, month, year] = item.transaction_date.split('/');
+      const dateKey = `${year}-${month.padStart(2, '0')}`;
+
+      const totalSales = parseFloat(item.total_usd.replace('$', '').replace(',', '.'));
+
+      if (salesData[dateKey]) {
+        salesData[dateKey] += totalSales;
+      } else {
+        salesData[dateKey] = totalSales;
+      }
+    });
+
+    const labels = Object.keys(salesData).sort();
+    const data = labels.map((label) => salesData[label]);
+
+    return { labels, data };
+  }
+
+  async function initChart() {
+    const chartData = await processMonthlySalesData();
+
+    const salesData = {
+      labels: chartData.labels,
+      datasets: [
+        {
+          label: 'Revenue',
+          data: chartData.data,
+          backgroundColor: 'rgba(75, 54, 25, 0.2)',
+          borderColor: 'rgba(75, 54, 25, 1)',
+          borderWidth: 1,
+          fill: true,
+          tension: 0.4,
+        },
+      ],
+    };
+
+    const config = {
+      type: 'line',
+      data: salesData,
+      options: {
+        responsive: true,
+        scales: {
+          y: {
+            beginAtZero: true,
+          },
         },
       },
-    },
-  };
+    };
 
-  const salesChart = new Chart(document.getElementById('revenue'), config);
-}
+    const chartContainer = document.getElementById('revenue');
+    if (chartContainer.chart) {
+      chartContainer.chart.destroy();
+    }
+    chartContainer.chart = new Chart(chartContainer, config);
+  }
 
-// Panggil fungsi untuk menginisialisasi chart saat halaman dimuat
-document.addEventListener('DOMContentLoaded', initChart);
-
-// total revenue
-$(document).ready(function () {
-  $.getJSON('data.json', function (data) {
-    var totalRevenue = 0;
-    $.each(data, function (index, item) {
-      var unit_price = parseFloat(item.unit_price.replace(',', '.'));
-      var transaction_qty = parseFloat(item.transaction_qty.replace(',', '.'));
-      totalRevenue += unit_price * item.transaction_qty;
-    });
-    $('#totalRevenue').text('$' + totalRevenue.toFixed(2));
-  });
+  // Tambahkan event listener untuk tombol next dan prev
+  document.getElementById('nextButton').addEventListener('click', nextButtonClick);
+  document.getElementById('prevButton').addEventListener('click', prevButtonClick);
 });
+
 fetch('data.json')
   .then((response) => response.json())
   .then((data) => {
@@ -491,89 +632,3 @@ fetch('data.json')
     // Membuat chart
     const horizontalStackedBarAreaChart = new Chart(document.getElementById('horizontalStackedBarAreaChart'), config);
   });
-
-
-  // pie chart dan filter
-  $(document).ready(function() {
-    $.getJSON('data.json', function(data) {
-      const jsonData = data;
-  
-      function renderChart(data) {
-        const ctx = document.getElementById('pieChart').getContext('2d');
-        if (window.myPieChart) {
-          window.myPieChart.destroy();
-        }
-  
-        const storeLocations = {};
-        data.forEach(item => {
-          storeLocations[item.store_location] = storeLocations[item.store_location] || [];
-          storeLocations[item.store_location].push(item.transaction_id);
-        });
-  
-        const labels = Object.keys(storeLocations);
-        const values = labels.map(label => storeLocations[label].length);
-  
-        window.myPieChart = new Chart(ctx, {
-          type: 'pie',
-          data: {
-            labels: labels,
-            datasets: [{
-              label: '# of Transactions',
-              data: values,
-              backgroundColor: [
-                'rgba(60,42,30, 0.2)',
-                'rgba(60,42,30, 0.5)',
-                'rgba(60,42,30, 1)',
-                // 'rgba(75, 192, 192, 0.2)',
-                // 'rgba(153, 102, 255, 0.2)',
-                // 'rgba(255, 159, 64, 0.2)'
-              ],
-              borderColor: [
-                'rgba(60,42,30, 1)',
-                'rgba(60,42,30, 1)',
-                'rgba(60,42,30, 1)',
-                // 'rgba(75, 192, 192, 1)',
-                // 'rgba(153, 102, 255, 1)',
-                // 'rgba(255, 159, 64, 1)'
-              ],
-              borderWidth: 1
-            }]
-          },
-          options: {
-            responsive: true,
-            plugins: {
-              legend: {
-                position: 'top',
-              },
-              tooltip: {
-                callbacks: {
-                  label: function(context) {
-                    const label = context.label || '';
-                    const count = context.raw;
-                    const transactionIds = storeLocations[label];
-                    return `${label}: ${count} (Transactions: ${transactionIds.join(', ')})`;
-                  }
-                }
-              }
-            }
-          }
-        });
-      }
-  
-      function filterData(searchValue) {
-        return jsonData.filter(item => 
-          item.store_location.toLowerCase().includes(searchValue) ||
-          item.transaction_id.includes(searchValue)
-        );
-      }
-  
-      $('#search').on('input', function() {
-        const searchValue = this.value.toLowerCase();
-        const filteredData = filterData(searchValue);
-        renderChart(filteredData);
-      });
-  
-      renderChart(jsonData);
-    });
-  });
-  
